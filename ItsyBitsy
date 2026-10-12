@@ -1,0 +1,33 @@
+TryHackMe Writeup: ItsyBitsy (SOC Level 1 — CTI & Log Analysis)
+
+Contesto e Scenario
+Durante il normale monitoraggio del SOC, è stata rilevata un'allerta IDS riguardante una potenziale comunicazione di **Command & Control (C2)** proveniente dalla postazione dell'utente *Browne* (Dipartimento HR). L'obiettivo dell'analisi è stato quello di investigare i log di connessione di rete (`connection_logs`) all'interno di **Kibana** per ricostruire la catena dell'attacco, identificare gli IOC (Indicatori di Compromissione) e recuperare il payload malizioso.
+
+---
+
+Investigation & Detection
+
+1. Volume del traffico e identificazione host:
+   - Analizzando l'indice "connection_logs", sono stati restituiti "1.482 eventi" totali.
+   - Esaminando la distribuzione degli indirizzi IP sorgente nel campo `source_ip`, sono emersi due valori:
+   - `192.166.65.52` (99.6% degli eventi)
+   - `192.166.65.54` (0.4% degli eventi)
+  Metodologia: Invece di analizzare il traffico ordinario, la ricerca si è focalizzata direttamente sull'indirizzo IP anomalamente raro 192.166.65.54 (solo lo 0.4% del volume totale), permettendo di isolare immediatamente le connessioni sospette.
+
+
+2. Identificazione dell'abuso di strumenti di sistema (LOLBin):
+   - Esaminando il campo `user_agent` nelle richieste di rete, è emerso che la macchina dell'utente non stava usando un browser standard, ma l'eseguibile di sistema `bitsadmin`.
+   - Analisi: L'attaccante ha sfruttato una tecnica di tipo *LOLBas* utilizzando una risorsa legittima di Windows per scaricare file dall'esterno bypassando i controlli base.
+
+3. Infrastruttura C2 ed Estrazione del Payload:
+   - I log di connessione hanno mostrato traffico HTTP verso il dominio `pastebin.com`, un noto servizio di condivisione testo spesso abusato come server C2.
+   - Isolando i campi `host: pastebin.com` e `uri: /yTg0Ah6a`, è stata ricostruita l'URL completa utilizzata dalla minaccia: `https://pastebin.com/yTg0Ah6a`.
+
+   - Verificando la risorsa sul browser, è stato identificato il file scaricato (secret.txt) contenente il flag dell'investigazione:THM{SECRET__CODE}.
+
+---
+
+(Competenze Acquisite)
+- Threat Hunting con ELK/Kibana: Come filtrare e incrociare efficacemente i campi (source_ip, host, uri, user_agent) per isolare il traffico anomalo.
+- Rilevamento di LOLBins: L'importanza di monitorare gli User-Agent e i processi di sistema (come bitsadmin) quando effettuano connessioni verso internet.
+- CTI & Abuso di servizi Cloud: Come i malintenzionati utilizzano piattaforme note (es. Pastebin) per nascondere le comunicazioni C2 all'interno del normale traffico web aziendale.
